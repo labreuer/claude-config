@@ -35,7 +35,9 @@ the tokens also needs a table that goes stale with every model release.
 
 Every open session runs the script once a minute, idle or not, so each file
 below is written only when its contents change. All are in
-`~/.cache/claude-code/`:
+`~/.cache/claude-code/`, which the script keeps at mode 0700, and new files
+are created 0600, since they hold session titles, working directories and
+costs:
 
 | file | contents |
 |------|----------|

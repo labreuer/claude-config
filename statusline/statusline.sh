@@ -18,11 +18,17 @@ SHOW_PROJECTION=off
 THRESH_LOW=80
 THRESH_HIGH=95
 
+# The cache holds session titles, working directories and costs, so keep it
+# private. A umask only applies when a file is created, and usage-log.tsv is
+# only ever appended to, so files from before this change keep their old modes.
+# Keeping the directory itself at 0700 shuts other users out of them anyway.
+umask 077
+
 input=$(cat)
 cache="$HOME/.cache/claude-code"
 # STATUSLINE_DRY_RUN=1 renders without touching the cache files or logs (for testing)
 [ -n "$STATUSLINE_DRY_RUN" ] && cache=$(mktemp -d) && trap 'rm -rf "$cache"' EXIT
-mkdir -p "$cache"
+mkdir -p "$cache" && chmod 700 "$cache"
 printf '%s' "$input" > "$cache/statusline-last.json"
 
 # ---- fields from the payload (one jq pass) ---------------------------------
