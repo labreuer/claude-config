@@ -4,9 +4,10 @@
 # https://code.claude.com/docs/en/statusline.md). Makes no network calls.
 # Writes, under $XDG_CACHE_HOME/claude-code/ or else ~/.cache/claude-code/
 # (README.md has the details):
-#   statusline-last.json          the raw input, for debugging
 #   usage.json                    rate limits merged across sessions, for a widget
 #   sessions/<session_id>.json    each session's own figures
+# and, with STATUSLINE_WRITE_LOGS=on, two logs:
+#   statusline-last.json          the raw input, for debugging
 #   usage-log.tsv                 history, appended only when something changed
 
 # ---- configuration --------------------------------------------------------------
@@ -19,11 +20,14 @@
 # STATUSLINE_THRESH_LOW, STATUSLINE_THRESH_HIGH: colour thresholds in percent,
 # 80 and 95 by default: green below LOW, yellow below HIGH, red otherwise. They
 # must be whole numbers, since the shell compares them as integers.
+# STATUSLINE_WRITE_LOGS: "on" also writes the two logs listed above; "off" (the
+# default) leaves them out. usage.json and sessions/ are written either way.
 SHOW_PROJECTION=${STATUSLINE_SHOW_PROJECTION:-off}
 THRESH_LOW=${STATUSLINE_THRESH_LOW:-80}
 THRESH_HIGH=${STATUSLINE_THRESH_HIGH:-95}
+WRITE_LOGS=${STATUSLINE_WRITE_LOGS:-off}
 
-# The cache holds session titles, working directories and costs, so keep it
+# The cache can hold session titles, working directories and costs, so keep it
 # private. A umask only applies when a file is created, and usage-log.tsv is
 # only ever appended to, so files from before this change keep their old modes.
 # Keeping the directory itself at 0700 shuts other users out of them anyway.
@@ -40,7 +44,7 @@ esac
 # STATUSLINE_DRY_RUN=1 renders without touching the cache files or logs (for testing)
 [ -n "$STATUSLINE_DRY_RUN" ] && cache=$(mktemp -d) && trap 'rm -rf "$cache"' EXIT
 mkdir -p "$cache" && chmod 700 "$cache"
-printf '%s' "$input" > "$cache/statusline-last.json"
+[ "$WRITE_LOGS" = on ] && printf '%s' "$input" > "$cache/statusline-last.json"
 
 # ---- fields from the payload (one jq pass) ---------------------------------
 # Joined with \x1f, not spaces: read collapses a run of whitespace separators,
@@ -131,20 +135,23 @@ printf '%s' "$input" | jq -c --argjson old "$(json_object "$cache/usage.json")" 
   | write_json "$cache/usage.json"
 
 # ---- usage history -------------------------------------------------------------
-# Append a row whenever a window's figures change for THIS session:
+# With STATUSLINE_WRITE_LOGS=on, append a row whenever a window's figures change
+# for THIS session:
 #   ts<TAB>session_id<TAB>window<TAB>used_pct<TAB>resets_at
 # Each session logs the reading from its own latest API response, so an idle
 # session's last row lags the others. Within one resets_at usage only rises, so
 # consumers should take the max per resets_at and time bucket.
-ulog="$cache/usage-log.tsv"
-[ -f "$ulog" ] || printf 'ts\tsession_id\twindow\tused_pct\tresets_at\n' > "$ulog"
-for row in "$five_row" "$week_row"; do
-  [ -z "$row" ] && continue
-  w=${row%%$'\t'*}
-  last=$(awk -F'\t' -v s="$session_id" -v w="$w" \
-    '$2 == s && $3 == w { r = $3 FS $4 FS $5 } END { print r }' "$ulog")
-  [ "$row" != "$last" ] && printf '%s\t%s\t%s\n' "$(date +%s)" "$session_id" "$row" >> "$ulog"
-done
+if [ "$WRITE_LOGS" = on ]; then
+  ulog="$cache/usage-log.tsv"
+  [ -f "$ulog" ] || printf 'ts\tsession_id\twindow\tused_pct\tresets_at\n' > "$ulog"
+  for row in "$five_row" "$week_row"; do
+    [ -z "$row" ] && continue
+    w=${row%%$'\t'*}
+    last=$(awk -F'\t' -v s="$session_id" -v w="$w" \
+      '$2 == s && $3 == w { r = $3 FS $4 FS $5 } END { print r }' "$ulog")
+    [ "$row" != "$last" ] && printf '%s\t%s\t%s\n' "$(date +%s)" "$session_id" "$row" >> "$ulog"
+  done
+fi
 
 # ---- projected usage at window end -------------------------------------------
 # Extrapolate linearly from the fraction of the window elapsed so far, taking
