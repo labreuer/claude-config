@@ -159,6 +159,15 @@ window_usage() {  # used_pct resets_at window_seconds min_elapsed -> rendered "N
 }
 
 # ---- render -------------------------------------------------------------------
+# Without a Pro or Max plan (an API key, Bedrock, Vertex) there is no
+# rate_limits, so both windows show "-". Most organisations want token spending
+# kept down, so a natural replacement there is a spending target: a daily or
+# weekly budget set in the environment and coloured with the same thresholds.
+# sessions/*.json has each session's cost, but summing them needs care: records
+# last two days, and a continued session's cost already includes its parent's.
+# Behind a Claude apps gateway with a spend limit, Claude Code already sends
+# rate_limits.spend_limit (used_percentage, resets_at), which could be shown
+# like a third window.
 usage="5h $(window_usage "$five" "$five_reset" $((5*3600)) 600)"
 r=$(time_left "$five_reset"); [ -n "$r" ] && usage="$usage($r)"
 usage="$usage 7d $(window_usage "$week" "$week_reset" $((7*86400)) $((6*3600)))"
