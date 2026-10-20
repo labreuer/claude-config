@@ -17,11 +17,26 @@ which Claude Code fills from its own API responses.
 
 The two window percentages are coloured by where they are headed rather than
 where they are. The script projects usage at the window's end in a straight
-line (used % ÷ fraction of the window elapsed): green below 80 %, yellow below
-95 %, red otherwise. They stay uncoloured for the first 10 minutes of the 5h
-window and the first 6 hours of the 7d one, while the projection is noise.
-`SHOW_PROJECTION=on` at the top of the script prints the projection as well:
-`5h 6%→20%(3h30m)`.
+line (used % ÷ fraction of the window elapsed): by default green below 80 %,
+yellow below 95 %, red otherwise. They stay uncoloured for the first 10 minutes
+of the 5h window and the first 6 hours of the 7d one, while the projection is
+noise.
+
+## Settings
+
+Set these in the environment, for example at the start of the `statusLine`
+command in `settings.json`:
+
+    "command": "STATUSLINE_SHOW_PROJECTION=on ~/git/claude-config/statusline/statusline.sh"
+
+| variable | default | effect |
+|----------|---------|--------|
+| `STATUSLINE_SHOW_PROJECTION` | `off` | `on` prints the projection as well: `5h 6%→20%(3h30m)` |
+| `STATUSLINE_THRESH_LOW` | `80` | projected % below which a window is green |
+| `STATUSLINE_THRESH_HIGH` | `95` | projected % below which it is yellow; at or above, red |
+| `STATUSLINE_DRY_RUN` | unset | any value renders without touching the cache (see Testing) |
+
+The thresholds must be whole numbers, such as `75` rather than `75.5`.
 
 ## Cost
 

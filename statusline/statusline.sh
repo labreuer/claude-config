@@ -9,14 +9,18 @@
 #   usage-log.tsv                 history, appended only when something changed
 
 # ---- configuration --------------------------------------------------------------
-# SHOW_PROJECTION: "on"  = show current % and a →NN% projection of usage at window end
-#                  "off" = show only the current %
+# Set these in the environment, e.g. in the statusLine command in settings.json:
+#   "command": "STATUSLINE_SHOW_PROJECTION=on ~/git/claude-config/statusline/statusline.sh"
+# STATUSLINE_SHOW_PROJECTION: "on"  = show current % and a →NN% projection of usage at window end
+#                             "off" = show only the current % (the default)
 # Either way the colour reflects the projected end-of-window value (uncoloured
 # while a window is too young to project).
-# Colour thresholds (percent): green below LOW, yellow below HIGH, red otherwise.
-SHOW_PROJECTION=off
-THRESH_LOW=80
-THRESH_HIGH=95
+# STATUSLINE_THRESH_LOW, STATUSLINE_THRESH_HIGH: colour thresholds in percent,
+# 80 and 95 by default: green below LOW, yellow below HIGH, red otherwise. They
+# must be whole numbers, since the shell compares them as integers.
+SHOW_PROJECTION=${STATUSLINE_SHOW_PROJECTION:-off}
+THRESH_LOW=${STATUSLINE_THRESH_LOW:-80}
+THRESH_HIGH=${STATUSLINE_THRESH_HIGH:-95}
 
 # The cache holds session titles, working directories and costs, so keep it
 # private. A umask only applies when a file is created, and usage-log.tsv is
