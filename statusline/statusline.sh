@@ -123,7 +123,8 @@ ulog="$cache/usage-log.tsv"
 for row in "$five_row" "$week_row"; do
   [ -z "$row" ] && continue
   w=${row%%$'\t'*}
-  last=$(grep -P "^\d+\t\Q$session_id\E\t$w\t" "$ulog" | tail -1 | cut -f3-)
+  last=$(awk -F'\t' -v s="$session_id" -v w="$w" \
+    '$2 == s && $3 == w { r = $3 FS $4 FS $5 } END { print r }' "$ulog")
   [ "$row" != "$last" ] && printf '%s\t%s\t%s\n' "$(date +%s)" "$session_id" "$row" >> "$ulog"
 done
 

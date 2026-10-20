@@ -51,4 +51,4 @@ From this directory,
     STATUSLINE_DRY_RUN=1 ./statusline.sh < ~/.cache/claude-code/statusline-last.json
 
 renders against the last real payload without touching any of those files.
-Needs bash, jq, awk and GNU grep (`-P`).
+Needs bash, jq and awk.
