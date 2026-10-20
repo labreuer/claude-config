@@ -2,7 +2,8 @@
 # Claude Code status line: "{model} {effort} | 5h … 7d … | ctx … | $…"
 # Reads the session JSON Claude Code pipes to stdin (documented at
 # https://code.claude.com/docs/en/statusline.md). Makes no network calls.
-# Writes, under ~/.cache/claude-code/ (README.md has the details):
+# Writes, under $XDG_CACHE_HOME/claude-code/ or else ~/.cache/claude-code/
+# (README.md has the details):
 #   statusline-last.json          the raw input, for debugging
 #   usage.json                    rate limits merged across sessions, for a widget
 #   sessions/<session_id>.json    each session's own figures
@@ -30,7 +31,12 @@ umask 077
 
 input=$(cat)
 command -v jq >/dev/null || { echo "statusline.sh: jq not found"; exit 0; }
-cache="$HOME/.cache/claude-code"
+# Honour XDG_CACHE_HOME, but only an absolute path: the XDG spec says to ignore
+# a relative one.
+case $XDG_CACHE_HOME in
+  /*) cache="$XDG_CACHE_HOME/claude-code" ;;
+  *) cache="$HOME/.cache/claude-code" ;;
+esac
 # STATUSLINE_DRY_RUN=1 renders without touching the cache files or logs (for testing)
 [ -n "$STATUSLINE_DRY_RUN" ] && cache=$(mktemp -d) && trap 'rm -rf "$cache"' EXIT
 mkdir -p "$cache" && chmod 700 "$cache"

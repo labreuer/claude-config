@@ -48,11 +48,12 @@ the tokens also needs a table that goes stale with every model release.
 
 ## Files it writes
 
-Every open session runs the script once a minute, idle or not, so each file
-below is written only when its contents change. All are in
-`~/.cache/claude-code/`, which the script keeps at mode 0700, and new files
-are created 0600, since they hold session titles, working directories and
-costs:
+The files are in `$XDG_CACHE_HOME/claude-code/`, or `~/.cache/claude-code/`
+when `XDG_CACHE_HOME` isn't set to an absolute path. The script keeps that
+directory at mode 0700 and creates new files 0600, since they hold session
+titles, working directories and costs. Every open session runs the script once
+a minute, idle or not, so each file below is written only when its contents
+change:
 
 | file | contents |
 |------|----------|
