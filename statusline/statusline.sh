@@ -25,6 +25,7 @@ THRESH_HIGH=95
 umask 077
 
 input=$(cat)
+command -v jq >/dev/null || { echo "statusline.sh: jq not found"; exit 0; }
 cache="$HOME/.cache/claude-code"
 # STATUSLINE_DRY_RUN=1 renders without touching the cache files or logs (for testing)
 [ -n "$STATUSLINE_DRY_RUN" ] && cache=$(mktemp -d) && trap 'rm -rf "$cache"' EXIT
