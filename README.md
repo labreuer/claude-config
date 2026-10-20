@@ -9,6 +9,14 @@ is one piece, with its own README.
 
 ## Using the status line
 
+```text
+Opus 5.5 xhigh | 5h 6%(3h30m) 7d 38%(3d17h) | ctx 8% | $0.77
+```
+
+In Claude Code, the 6% shows green and the 38% yellow: the colours follow where
+each window is headed. [statusline/README.md](statusline/README.md) explains
+every segment.
+
 Point `statusLine` in `~/.claude/settings.json` at the script in your clone:
 
 ```json
