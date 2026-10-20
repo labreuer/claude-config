@@ -42,9 +42,9 @@ costs:
 | file | contents |
 |------|----------|
 | `statusline-last.json` | the last input payload, from whichever session refreshed last, for debugging |
-| `usage.json` | `updated_at` and `rate_limits` (`five_hour`, `seven_day`: `used_percentage`, `resets_at`), merged across sessions: the source for a desktop widget. Within one window the higher reading wins; a later `resets_at` replaces it, and an earlier one, from an idle session that hasn't seen the reset, is ignored. |
+| `usage.json` | `updated_at` and `rate_limits` (`five_hour`, `seven_day`: `used_percentage`, `resets_at`), merged across sessions: the source for a desktop widget. Within one window the higher reading wins; a later `resets_at` replaces it, and an earlier one is ignored. Claude Code drops a window from the payload once it resets, so that last rule is only a guard. |
 | `sessions/<session_id>.json` | one session's `model`, `effort`, `context_pct` and `cost_usd`, plus `updated_at`, the time they last changed. `cost_usd` keeps the highest value seen, since Claude Code's counter has dropped to $0 mid-session (after `/login`, and when an IDE session restarted). Written only by that session; deleted after two days without a change. |
-| `usage-log.tsv` | a row per session whenever a window's used % changes. Idle sessions repeat stale readings, so take the max per `resets_at`. |
+| `usage-log.tsv` | a row per session whenever a window's used % changes. An idle session's last row lags the others; within one `resets_at` usage only rises, so take the max. |
 
 ## Testing
 

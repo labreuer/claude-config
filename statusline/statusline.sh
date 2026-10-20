@@ -105,10 +105,10 @@ find "$cache" -maxdepth 2 \( -path "$sessions/*.json" -o -name '*.json.tmp.*' \)
 # ---- usage.json: rate limits for a widget ----------------------------------------
 # Other sessions write this file too. Within one block (same resets_at) usage
 # only rises, so keep whichever snapshot is higher. A later resets_at starts a
-# new block and replaces; an earlier one is ignored, since idle sessions keep
-# reporting the block they last saw long after it has reset. The file is
-# rewritten only when the merged limits change, so updated_at is the time of the
-# last change.
+# new block and replaces. An earlier one is ignored, in case a session reports
+# a block that has already reset; current Claude Code drops a window from the
+# payload once it resets, so this is only a guard. The file is rewritten only
+# when the merged limits change, so updated_at is the time of the last change.
 printf '%s' "$input" | jq -c --argjson old "$(json_object "$cache/usage.json")" '
   def fresher($w): (.rate_limits[$w]) as $n | ($old.rate_limits[$w]) as $o
     | if $n == null then $o
@@ -123,8 +123,9 @@ printf '%s' "$input" | jq -c --argjson old "$(json_object "$cache/usage.json")" 
 # ---- usage history -------------------------------------------------------------
 # Append a row whenever a window's figures change for THIS session:
 #   ts<TAB>session_id<TAB>window<TAB>used_pct<TAB>resets_at
-# Several sessions may run this script; an idle one keeps reporting a stale
-# snapshot, so consumers should take, per resets_at and time bucket, the max.
+# Each session logs the reading from its own latest API response, so an idle
+# session's last row lags the others. Within one resets_at usage only rises, so
+# consumers should take the max per resets_at and time bucket.
 ulog="$cache/usage-log.tsv"
 [ -f "$ulog" ] || printf 'ts\tsession_id\twindow\tused_pct\tresets_at\n' > "$ulog"
 for row in "$five_row" "$week_row"; do
