@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Claude Code status line: "{model} {effort} | 5h … 7d … | ctx … | $…"
+# Claude Code status line: "{model} {effort} | 5h … 7d … | ctx … | $…",
+# or "{model} {effort} | {7d %} | ctx … | $…" on a plan without a 5h limit
 # Reads the session JSON Claude Code pipes to stdin (documented at
 # https://code.claude.com/docs/en/statusline.md). Makes no network calls.
 # Writes, under $XDG_CACHE_HOME/claude-code/ or else ~/.cache/claude-code/
@@ -41,8 +42,13 @@ case $XDG_CACHE_HOME in
   /*) cache="$XDG_CACHE_HOME/claude-code" ;;
   *) cache="$HOME/.cache/claude-code" ;;
 esac
-# STATUSLINE_DRY_RUN=1 renders without touching the cache files or logs (for testing)
-[ -n "$STATUSLINE_DRY_RUN" ] && cache=$(mktemp -d) && trap 'rm -rf "$cache"' EXIT
+# STATUSLINE_DRY_RUN=1 renders without touching the cache files or logs (for
+# testing). It starts from a copy of the real usage.json, because whether the
+# plan has a 5h limit is read from there.
+if [ -n "$STATUSLINE_DRY_RUN" ]; then
+  real_cache=$cache cache=$(mktemp -d) && trap 'rm -rf "$cache"' EXIT
+  [ -f "$real_cache/usage.json" ] && cp "$real_cache/usage.json" "$cache/"
+fi
 mkdir -p "$cache" && chmod 700 "$cache"
 [ "$WRITE_LOGS" = on ] && printf '%s' "$input" > "$cache/statusline-last.json"
 
@@ -123,15 +129,26 @@ find "$cache" -maxdepth 2 \( -path "$sessions/*.json" -o -name '*.json.tmp.*' \)
 # a block that has already reset; current Claude Code drops a window from the
 # payload once it resets, so this is only a guard. The file is rewritten only
 # when the merged limits change, so updated_at is the time of the last change.
+#
+# Some plans have no 5h limit, and the API then reports the 7d window alone.
+# A payload without five_hour can't show that by itself, since Claude Code also
+# drops the window once its block ends, until a request starts the next one.
+# But on a plan with a 5h limit every response carries both windows, so the
+# merged limits can't change after a 5h block ends without a new block coming
+# too. When they do (updated_at past that block's resets_at) the response had
+# no 5h window, and five_hour is dropped from usage.json. Five minutes' grace
+# covers a reading taken just before the block ended but merged just after.
 printf '%s' "$input" | jq -c --argjson old "$(json_object "$cache/usage.json")" '
   def fresher($w): (.rate_limits[$w]) as $n | ($old.rate_limits[$w]) as $o
     | if $n == null then $o
       elif $o == null or $n.resets_at > $o.resets_at then $n
       elif $n.resets_at < $o.resets_at then $o
       elif $o.used_percentage > $n.used_percentage then $o else $n end;
-  ({five_hour: fresher("five_hour"), seven_day: fresher("seven_day")} | with_entries(select(.value != null))) as $limits
-  | if $limits == ($old.rate_limits // {}) then empty
-    else {updated_at: now | floor, rate_limits: $limits} end' \
+  ($old.rate_limits // {}) as $prev
+  | {five_hour: fresher("five_hour"), seven_day: fresher("seven_day")} | with_entries(select(.value != null))
+  | (if . == $prev then $old.updated_at else now | floor end) as $changed
+  | if .five_hour and .five_hour.resets_at + 300 < $changed then del(.five_hour) else . end
+  | if . == $prev then empty else {updated_at: now | floor, rate_limits: .} end' \
   | write_json "$cache/usage.json"
 
 # ---- usage history -------------------------------------------------------------
@@ -193,10 +210,18 @@ window_usage() {  # used_pct resets_at window_seconds min_elapsed -> rendered "N
 # Behind a Claude apps gateway with a spend limit, Claude Code already sends
 # rate_limits.spend_limit (used_percentage, resets_at), which could be shown
 # like a third window.
-usage="5h $(window_usage "$five" "$five_reset" $((5*3600)) 600)"
-r=$(time_left "$five_reset"); [ -n "$r" ] && usage="$usage($r)"
-usage="$usage 7d $(window_usage "$week" "$week_reset" $((7*86400)) $((6*3600)))"
-r=$(time_left "$week_reset"); [ -n "$r" ] && usage="$usage($r)"
+week_usage=$(window_usage "$week" "$week_reset" $((7*86400)) $((6*3600)))
+# No 5h limit (usage.json has a 7d window but no 5h one; see above): only the
+# 7d %, with no "7d" label and no time left.
+if [ "$five" = "-" ] && jq -e '.rate_limits | has("seven_day") and (has("five_hour") | not)' \
+     "$cache/usage.json" >/dev/null 2>&1; then
+  usage=$week_usage
+else
+  usage="5h $(window_usage "$five" "$five_reset" $((5*3600)) 600)"
+  r=$(time_left "$five_reset"); [ -n "$r" ] && usage="$usage($r)"
+  usage="$usage 7d $week_usage"
+  r=$(time_left "$week_reset"); [ -n "$r" ] && usage="$usage($r)"
+fi
 usage="$usage | ctx $ctx"
 [ -n "$cost" ] && usage="$usage | \$$(awk -v c="$cost" 'BEGIN{printf "%.2f", c}')"
 

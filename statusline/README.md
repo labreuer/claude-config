@@ -22,6 +22,24 @@ yellow below 95 %, red otherwise. They stay uncoloured for the first 10 minutes
 of the 5h window and the first 6 hours of the 7d one, while the projection is
 noise.
 
+## Plans without a five-hour limit
+
+Some plans have only the weekly limit. There the line drops the 5h segment and
+shows the 7d percentage alone, still coloured but with no `7d` label and no
+time left:
+
+    Opus 5.5 xhigh | 4% | ctx 8% | $0.77
+
+A missing `five_hour` in the payload isn't enough to tell, since Claude Code
+also drops a window once its block ends, until a request starts the next one.
+But on a plan with a 5h limit every response reports both windows, so the 7d
+figure can't move after a 5h block ends unless a new 5h block arrives with it.
+When the merged 7d figure in `usage.json` changes more than five minutes after
+the last 5h block ended, with no new block, that 5h block is removed from
+`usage.json`. The line shows the 7d window alone while `usage.json` has no 5h
+window and the session's payload has none either. The first response that
+reports a 5h window brings the full line back.
+
 ## Settings
 
 Set these in the environment, for example at the start of the `statusLine`
@@ -58,7 +76,7 @@ their contents change:
 
 | file | contents |
 |------|----------|
-| `usage.json` | `updated_at` and `rate_limits` (`five_hour`, `seven_day`: `used_percentage`, `resets_at`), merged across sessions: the source for a desktop widget. Within one window the higher reading wins; a later `resets_at` replaces it, and an earlier one is ignored. Claude Code drops a window from the payload once it resets, so that last rule is only a guard. |
+| `usage.json` | `updated_at` and `rate_limits` (`five_hour`, `seven_day`: `used_percentage`, `resets_at`), merged across sessions: the source for a desktop widget. Within one window the higher reading wins; a later `resets_at` replaces it, and an earlier one is ignored. Claude Code drops a window from the payload once it resets, so that last rule is only a guard. On a plan without a 5h limit there is no `five_hour` (see above). |
 | `sessions/<session_id>.json` | one session's `model`, `effort`, `context_pct` and `cost_usd`, plus `updated_at`, the time they last changed. `cost_usd` keeps the highest value seen, since Claude Code's counter has dropped to $0 mid-session (after `/login`, and when an IDE session restarted). Written only by that session; deleted after two days without a change. |
 
 With `STATUSLINE_WRITE_LOGS=on` it also keeps two logs:
@@ -75,4 +93,6 @@ this directory
 
     STATUSLINE_DRY_RUN=1 ./statusline.sh < ~/.cache/claude-code/statusline-last.json
 
-renders against it without touching any of those files. Needs bash, jq and awk.
+renders against it without touching any of those files. It starts from a copy
+of the real `usage.json`, which decides whether the 5h window is shown. Needs
+bash, jq and awk.
